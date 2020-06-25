@@ -374,4 +374,58 @@ Also expose the debugging port 5005 under `ports`:
     - 5005:5005
 
 You can then establish a remote debugging session from your IDE on localhost:5005.
+
+
 # Microservice-CDC-Mysql
+
+## Start tutorial demo
+docker-compose -f docker-compose-mysql.yaml up -d
+
+## Check connector plugins list
+localhost:8083/connector-plugins
+
+## To list available connectors
+localhost:8083/connectors/
+
+## Configure source connector: 
+curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql.json
+
+## Configure sink connector:
+curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-sink.json
+
+## To check status of a connector: replace name of the connector in `jdbc-sink-connector`
+http://localhost:8083/connectors/jdbc-sink-connector/status
+
+## To delete a connector: replace name of the connector in `jdbc-sink-connector`
+curl -X DELETE localhost:8083/connectors/jdbc-sink-connector
+
+## Connect to Mysql source:
+`docker-compose -f docker-compose-mysql.yaml exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
+
+## Update records in source
+`update customers set first_name='dip';`
+
+## Insert records in source
+`insert into customers(id,first_name,last_name,email) values(1005,'1','1','1');`
+
+## Connect to Mysql Destination:
+`docker-compose -f docker-compose-mysql.yaml exec mysqldestination bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
+
+## Check whether log bin is enabled in mysql
+`SHOW VARIABLES LIKE 'log_bin';`
+
+## Get mysql Server id
+SELECT @@server_id
+
+## End the demo
+docker-compose -f docker-compose-mysql.yaml down
+
+## References
+Thanks to the below contributors
+
+1. [Microservices:](https://microservices.io/patterns/data/database-per-service.html) - Database per service architecture
+2. Use [CQRS](https://microservices.io/patterns/data/cqrs.html) to overcome Database per service pitfalls
+3. Inspired by [Eventuate Tram](https://eventuate.io/abouteventuatetram.html)
+4. [Confluent JDBC Sink Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
+5. [Debezium Mysql Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
+6. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.
