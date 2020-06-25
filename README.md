@@ -379,7 +379,7 @@ You can then establish a remote debugging session from your IDE on localhost:500
 # Microservice-CDC-Mysql
 
 ## Start tutorial demo
-docker-compose -f docker-compose-mysql.yaml up -d
+`docker-compose -f docker-compose-mysql.yaml up -d`
 
 ## Check connector plugins list
 localhost:8083/connector-plugins
@@ -388,16 +388,16 @@ localhost:8083/connector-plugins
 localhost:8083/connectors/
 
 ## Configure source connector: 
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql.json
+`curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql.json`
 
 ## Configure sink connector:
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-sink.json
+`curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-sink.json`
 
 ## To check status of a connector: replace name of the connector in "jdbc-sink-connector"
 http://localhost:8083/connectors/jdbc-sink-connector/status
 
 ## To delete a connector: replace name of the connector in "jdbc-sink-connector"
-curl -X DELETE localhost:8083/connectors/jdbc-sink-connector
+`curl -X DELETE localhost:8083/connectors/jdbc-sink-connector`
 
 ## Connect to Mysql source:
 `docker-compose -f docker-compose-mysql.yaml exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
@@ -434,10 +434,10 @@ curl -X DELETE localhost:8083/connectors/jdbc-sink-connector
 `SHOW VARIABLES LIKE 'log_bin';`
 
 ## Get mysql Server id
-SELECT @@server_id
+`SELECT @@server_id`
 
 ## End the demo
-docker-compose -f docker-compose-mysql.yaml down
+`docker-compose -f docker-compose-mysql.yaml down`
 
 ## References
 Thanks to the below contributors
