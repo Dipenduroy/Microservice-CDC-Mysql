@@ -1,0 +1,25 @@
+{
+  "name": "jdbc-sink-connector",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:mysql://mysqldestination:3306/inventory?user=mysqluser&password=mysqlpw&useUnicode=true&characterEncoding=UTF-8&verifyServerCertificate=false&useSSL=false&requireSSL=false&autoReconnect=true&failOverReadOnly=false&maxReconnects=10",
+    "connection.user":"mysqluser",
+    "connection.password":"mysqlpw",
+    "delete.enabled":"true",
+    "pk.mode":"record_key",
+    "auto.create": "true",
+    "auto.evolve":"true",
+    "tasks.max": "1",  
+    "topics": "customers",
+    "table.name.format":"kafka_${topic}",
+    "pk.fields": "id",
+    "insert.mode": "insert",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true",  
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "true"
+  }
+}
