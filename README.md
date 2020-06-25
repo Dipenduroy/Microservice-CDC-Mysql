@@ -448,30 +448,3 @@ Thanks to the below contributors
 4. [Confluent JDBC Sink Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 5. [Debezium Mysql Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 6. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.
-
-
-
-## Source table
-mysql> desc customers;
-+------------+--------------+------+-----+---------+----------------+
-| Field      | Type         | Null | Key | Default | Extra          |
-+------------+--------------+------+-----+---------+----------------+
-| id         | int(11)      | NO   | PRI | NULL    | auto_increment |
-| first_name | varchar(255) | NO   |     | NULL    |                |
-| last_name  | varchar(255) | NO   |     | NULL    |                |
-| email      | varchar(255) | NO   | UNI | NULL    |                |
-| phone      | varchar(40)  | YES  |     | NULL    |                |
-+------------+--------------+------+-----+---------+----------------+
-
-
-## Destination table
-mysql> desc kafka_customers;
-+------------+--------------+------+-----+---------+-------+
-| Field      | Type         | Null | Key | Default | Extra |
-+------------+--------------+------+-----+---------+-------+
-| id         | int(11)      | NO   | PRI | NULL    |       |
-| first_name | varchar(256) | NO   |     | NULL    |       |
-| last_name  | varchar(256) | NO   |     | NULL    |       |
-| email      | varchar(256) | NO   |     | NULL    |       |
-| phone      | varchar(256) | YES  |     | NULL    |       |
-+------------+--------------+------+-----+---------+-------+
