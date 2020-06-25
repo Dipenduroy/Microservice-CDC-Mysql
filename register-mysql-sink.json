@@ -13,7 +13,7 @@
     "topics": "customers",
     "table.name.format":"kafka_${topic}",
     "pk.fields": "id",
-    "insert.mode": "insert",
+    "insert.mode": "upsert",
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
     "transforms.unwrap.drop.tombstones": "false",

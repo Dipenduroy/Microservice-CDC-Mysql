@@ -393,10 +393,10 @@ curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json"
 ## Configure sink connector:
 curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-sink.json
 
-## To check status of a connector: replace name of the connector in `jdbc-sink-connector`
+## To check status of a connector: replace name of the connector in "jdbc-sink-connector"
 http://localhost:8083/connectors/jdbc-sink-connector/status
 
-## To delete a connector: replace name of the connector in `jdbc-sink-connector`
+## To delete a connector: replace name of the connector in "jdbc-sink-connector"
 curl -X DELETE localhost:8083/connectors/jdbc-sink-connector
 
 ## Connect to Mysql source:
@@ -407,6 +407,25 @@ curl -X DELETE localhost:8083/connectors/jdbc-sink-connector
 
 ## Insert records in source
 `insert into customers(id,first_name,last_name,email) values(1005,'1','1','1');`
+
+## Delete a record in source
+`delete from customers where id=1005;` 
+
+## Add column in source : Column will only be added if any new insert sql statement is found with the new column
+`ALTER TABLE customers
+  ADD phone varchar(40)  NULL
+    AFTER email;`
+    
+## Rename column name in source : Column will only be added if any new insert sql statement is found with the new column,but old data in not available in new column. So only rename columns if data are not added in old field
+`ALTER TABLE customers
+  CHANGE COLUMN phone mobile
+    varchar(20) NULL;`
+    
+## Remove a column in source : Column is not removed : Remove is not yet supported
+`ALTER TABLE customers
+  DROP COLUMN mobile;`    
+  
+## Unique index/Auto increment column is not added in destination, but due to it no adverse effect is found yet
 
 ## Connect to Mysql Destination:
 `docker-compose -f docker-compose-mysql.yaml exec mysqldestination bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
@@ -429,3 +448,30 @@ Thanks to the below contributors
 4. [Confluent JDBC Sink Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 5. [Debezium Mysql Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 6. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.
+
+
+
+## Source table
+mysql> desc customers;
++------------+--------------+------+-----+---------+----------------+
+| Field      | Type         | Null | Key | Default | Extra          |
++------------+--------------+------+-----+---------+----------------+
+| id         | int(11)      | NO   | PRI | NULL    | auto_increment |
+| first_name | varchar(255) | NO   |     | NULL    |                |
+| last_name  | varchar(255) | NO   |     | NULL    |                |
+| email      | varchar(255) | NO   | UNI | NULL    |                |
+| phone      | varchar(40)  | YES  |     | NULL    |                |
++------------+--------------+------+-----+---------+----------------+
+
+
+## Destination table
+mysql> desc kafka_customers;
++------------+--------------+------+-----+---------+-------+
+| Field      | Type         | Null | Key | Default | Extra |
++------------+--------------+------+-----+---------+-------+
+| id         | int(11)      | NO   | PRI | NULL    |       |
+| first_name | varchar(256) | NO   |     | NULL    |       |
+| last_name  | varchar(256) | NO   |     | NULL    |       |
+| email      | varchar(256) | NO   |     | NULL    |       |
+| phone      | varchar(256) | YES  |     | NULL    |       |
++------------+--------------+------+-----+---------+-------+
