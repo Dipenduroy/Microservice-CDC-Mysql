@@ -113,10 +113,11 @@ Refer [debezium config](https://debezium.io/documentation/reference/1.1/connecto
 ### References
 Thanks to the below contributors
 
-1. [Microservices:](https://microservices.io/patterns/data/database-per-service.html) - Database per service architecture
+1. [Microservices](https://microservices.io/patterns/data/database-per-service.html) - Database per service architecture
 2. Use [CQRS](https://microservices.io/patterns/data/cqrs.html) to overcome Database per service pitfalls
 3. Inspired by [Eventuate Tram](https://eventuate.io/abouteventuatetram.html)
-4. [Confluent JDBC Sink Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
-5. [Debezium Mysql Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
+4. Debezium Mysql Source [Connector](https://debezium.io/documentation/reference/1.1/connectors/mysql.html)
+5. Confluent JDBC Sink Connector [configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 6. Manage [Confluent Kafka connector](https://docs.confluent.io/3.2.0/connect/managing.html)
 7. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.
+8. Other Debezium source connector [examples](https://github.com/debezium/debezium-examples)
