@@ -1,445 +1,116 @@
-# Debezium Tutorial
-
-This demo automatically deploys the topology of services as defined in the [Debezium Tutorial](https://debezium.io/docs/tutorial/).
-
-- [Debezium Tutorial](#debezium-tutorial)
-  * [Using MySQL](#using-mysql)
-    + [Using MySQL and the Avro message format](#using-mysql-and-the-avro-message-format)
-      - [Kafka Connect Worker configuration](#kafka-connect-worker-configuration)
-      - [Debezium Connector configuration](#debezium-connector-configuration)
-    + [Using MySQL and Apicurio Registry](#using-mysql-and-apicurio-registry)
-      - [JSON format](#json-format)
-      - [Avro format using Apicurio Avro converter](#avro-format-using-apicurio-avro-converter)
-      - [Avro format using Confluent Avro converter](#avro-format-using-confluent-avro-converter)
-  * [Using Postgres](#using-postgres)
-  * [Using MongoDB](#using-mongodb)
-  * [Using Oracle](#using-oracle)
-  * [Using SQL Server](#using-sql-server)
-  * [Using Db2](#using-db2)
-  * [Using externalized secrets](#using-externalized-secrets)
-  * [Debugging](#debugging)
-
-## Using MySQL
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-mysql.yaml up
-
-# Start MySQL connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql.json
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-mysql.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.customers
-
-# Modify records in the database via MySQL client
-docker-compose -f docker-compose-mysql.yaml exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'
-
-# Shut down the cluster
-docker-compose -f docker-compose-mysql.yaml down
-```
-
-### Using MySQL and the Avro message format
-
-To use [Avro-style messages](https://debezium.io/docs/configuration/avro/) instead of JSON,
-Avro can be configured one of two ways, 
-in the Kafka Connect worker configuration or in the connector configuration.
-Using Avro in conjunction with the schema registry allows for much more compact messages.
-
-#### Kafka Connect Worker configuration
-
-Configuring Avro at the Kafka Connect worker involves using the same steps above for MySQL but instead using the _docker-compose-mysql-avro-worker.yaml_ configuration file instead.
-The Compose file configures the Connect service to use the Avro (de-)serializers for the Connect instance and starts one more additional service, the Confluent schema registry.
-
-#### Debezium Connector configuration
-
-Configuring Avro at the Debezium Connector involves specifying the converter and schema registry as a part of the connectors configuration.
-To do this, follow the same steps above for MySQL but instead using the _docker-compose-mysql-avro-connector.yaml_ and _register-mysql-avro.json_ configuration files.
-The Compose file configures the Connect service to use the default (de-)serializers for the Connect instance and starts one additional service, the Confluent schema registry.
-The connector configuration file configures the connector but explicitly sets the (de-)serializers for the connector to use Avro and specifies the location of the schema registry.
-
-You can access the first version of the schema for `customers` values like so:
-
-```shell
-curl -X GET http://localhost:8081/subjects/dbserver1.inventory.customers-value/versions/1
-```
-
-Or, if you have the `jq` utility installed, you can get a formatted output like this:
-
-```shell
-curl -X GET http://localhost:8081/subjects/dbserver1.inventory.customers-value/versions/1 | jq '.schema | fromjson'
-```
-
-If you alter the structure of the `customers` table in the database and trigger another change event,
-a new version of that schema will be available in the registry.
-
-The service registry also comes with a console consumer that can read the Avro messages:
-
-```shell
-docker-compose -f docker-compose-mysql-avro-worker.yaml exec schema-registry /usr/bin/kafka-avro-console-consumer \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --property schema.registry.url=http://schema-registry:8081 \
-    --topic dbserver1.inventory.customers
-```
-
-### Using MySQL and Apicurio Registry
-
-[Apicurio Registry](https://github.com/Apicurio/apicurio-registry) is an open-source API and schema registry that amongst other things can be used to store schemas of Kafka records.
-It provides
-
-* its own native Avro converter and Protobuf serializer
-* a JSON converter that exports its schema into the registry
-* a compatibility layer with other schema registries such as IBM's or Confluent's; it can be used with the Confluent Avro converter.
-
-For the Apicurio examples we will use the following deployment topology:
-
-![Apicurio example topology](docker-compose-mysql-apicurio.png)
-
-#### JSON format
-
-Configuring JSON converter with externalized schema at the Debezium Connector involves specifying the converter and schema registry as a part of the connectors configuration.
-To do this, follow the same steps above for MySQL but instead using the _docker-compose-mysql-apicurio.yaml_ and _register-mysql-apicurio-converter-json.json_ configuration files.
-The Compose file configures the Connect service to use the default (de-)serializers for the Connect instance and starts one additional service, the Apicurio Registry.
-The connector configuration file configures the connector but explicitly sets the (de-)serializers for the connector to use Avro and specifies the location of the Apicurio registry.
-
-You can access the first version of the schema for `customers` values like so:
-
-```shell
-curl -X GET http://localhost:8080/api/artifacts/dbserver1.inventory.customers-value
-```
-
-Or, if you have the `jq` utility installed, you can get a formatted output like this:
-
-```shell
-curl -X GET http://localhost:8080/api/artifacts/dbserver1.inventory.customers-value | jq .
-```
-
-If you alter the structure of the `customers` table in the database and trigger another change event,
-a new version of that schema will be available in the registry.
-
-You can consume the JSON messages in the same way as with standard JSON converter
-
-```shell
-docker-compose -f docker-compose-mysql-apicurio.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.customers
-```
-
-When you look at the data message you will notice that it contains only `payload` but not `schema` part as this is externalized into the registry.
-
-#### Avro format using Apicurio Avro converter
-
-Configuring Avro at the Debezium Connector involves specifying the converter and schema registry as a part of the connectors configuration.
-To do this, follow the same steps above for MySQL but instead using the _docker-compose-mysql-apicurio.yaml_ and _register-mysql-apicurio-converter-avro.json_ configuration files.
-The Compose file configures the Connect service to use the default (de-)serializers for the Connect instance and starts one additional service, the Apicurio Registry.
-The connector configuration file configures the connector but explicitly sets the (de-)serializers for the connector to use Avro and specifies the location of the Apicurio registry.
-
-You can access the first version of the schema for `customers` values like so:
-
-```shell
-curl -X GET http://localhost:8080/api/artifacts/dbserver1.inventory.customers-value
-```
-
-Or, if you have the `jq` utility installed, you can get a formatted output like this:
-
-```shell
-curl -X GET http://localhost:8080/api/artifacts/dbserver1.inventory.customers-value | jq .
-```
-
-If you alter the structure of the `customers` table in the database and trigger another change event,
-a new version of that schema will be available in the registry.
-
-#### Avro format using Confluent Avro converter
-
-Configuring Avro at the Debezium Connector involves specifying the converter and schema registry as a part of the connectors configuration.
-To do this, follow the same steps above for MySQL but instead using the _docker-compose-mysql-apicurio.yaml_ and _register-mysql-apicurio.json_ configuration files.
-The Compose file configures the Connect service to use the default (de-)serializers for the Connect instance and starts one additional service, the Apicurio Registry.
-The connector configuration file configures the connector but explicitly sets the (de-)serializers for the connector to use Avro and specifies the location of the Apicurio registry.
-
-You can access the first version of the schema for `customers` values like so:
-
-```shell
-curl -X GET http://localhost:8080/api/ccompat/subjects/dbserver1.inventory.customers-value/versions/1
-```
-
-Or, if you have the `jq` utility installed, you can get a formatted output like this:
-
-```shell
-curl -X GET http://localhost:8080/api/ccompat/subjects/dbserver1.inventory.customers-value/versions/1 | jq '.schema | fromjson'
-```
-
-If you alter the structure of the `customers` table in the database and trigger another change event,
-a new version of that schema will be available in the registry.
-
-To consume the Avro messages It is possible to use `kafkacat` tool:
-
-```shell
-docker run --rm --tty \
-  --network tutorial_default \
-  debezium/tooling \
-  kafkacat -b kafka:9092 -C -o beginning -q -s value=avro -r http://apicurio:8080/api/ccompat \
-  -t dbserver1.inventory.customers | jq .
-```
-
-## Using Postgres
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-postgres.yaml up
-
-# Start Postgres connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-postgres.json
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-postgres.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.customers
-
-# Modify records in the database via Postgres client
-docker-compose -f docker-compose-postgres.yaml exec postgres env PGOPTIONS="--search_path=inventory" bash -c 'psql -U $POSTGRES_USER postgres'
-
-# Shut down the cluster
-docker-compose -f docker-compose-postgres.yaml down
-```
-
-## Using MongoDB
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-mongodb.yaml up
-
-# Initialize MongoDB replica set and insert some test data
-docker-compose -f docker-compose-mongodb.yaml exec mongodb bash -c '/usr/local/bin/init-inventory.sh'
-
-# Start MongoDB connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mongodb.json
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-mongodb.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic dbserver1.inventory.customers
-
-# Modify records in the database via MongoDB client
-docker-compose -f docker-compose-mongodb.yaml exec mongodb bash -c 'mongo -u $MONGODB_USER -p $MONGODB_PASSWORD --authenticationDatabase admin inventory'
-
-db.customers.insert([
-    { _id : NumberLong("1005"), first_name : 'Bob', last_name : 'Hopper', email : 'thebob@example.com', unique_id : UUID() }
-]);
-
-# Shut down the cluster
-docker-compose -f docker-compose-mongodb.yaml down
-```
-
-## Using Oracle
-
-This assumes Oracle is running on localhost
-(or is reachable there, e.g. by means of running it within a VM or Docker container with appropriate port configurations)
-and set up with the configuration, users and grants described in the Debezium [Vagrant set-up](https://github.com/debezium/oracle-vagrant-box).
-Note that the connector is using the XStream API, which requires a license for the Golden Gate product
-(which itself is not required be installed, though).
-
-Also you must download the [Oracle instant client for Linux](http://www.oracle.com/technetwork/topics/linuxx86-64soft-092277.html)
-and put it under the directory _debezium-with-oracle-jdbc/oracle_instantclient_.
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-oracle.yaml up --build
-
-# Insert test data
-cat debezium-with-oracle-jdbc/init/inventory.sql | docker exec -i dbz_oracle sqlplus debezium/dbz@//localhost:1521/ORCLPDB1
-```
-
-Adjust the host name of the database server and the name of the XStream outbound server in `register-oracle.json` as per your environment.
-Then register the Debezium Oracle connector:
-
-```shell
-# Start Oracle connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-oracle.json
-
-# Create a test change record
-echo "INSERT INTO customers VALUES (NULL, 'John', 'Doe', 'john.doe@example.com');" | docker exec -i dbz_oracle sqlplus debezium/dbz@//localhost:1521/ORCLPDB1
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-oracle.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic server1.DEBEZIUM.CUSTOMERS
-
-# Modify other records in the database via Oracle client
-docker exec -i dbz_oracle sqlplus debezium/dbz@//localhost:1521/ORCLPDB1
-
-# Shut down the cluster
-docker-compose -f docker-compose-oracle.yaml down
-```
-
-## Using SQL Server
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-sqlserver.yaml up
-
-# Initialize database and insert test data
-cat debezium-sqlserver-init/inventory.sql | docker exec -i tutorial_sqlserver_1 bash -c '/opt/mssql-tools/bin/sqlcmd -U sa -P $SA_PASSWORD'
-
-# Start SQL Server connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-sqlserver.json
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-sqlserver.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic server1.dbo.customers
-
-# Modify records in the database via SQL Server client (do not forget to add `GO` command to execute the statement)
-docker-compose -f docker-compose-sqlserver.yaml exec sqlserver bash -c '/opt/mssql-tools/bin/sqlcmd -U sa -P $SA_PASSWORD -d testDB'
-
-# Shut down the cluster
-docker-compose -f docker-compose-sqlserver.yaml down
-```
-
-## Using Db2
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-
-docker-compose -f docker-compose-db2.yaml up --build
-
-# Start DB2 connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-db2.json
-
-# Consume messages from a Debezium topic
-docker-compose -f docker-compose-db2.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
-    --bootstrap-server kafka:9092 \
-    --from-beginning \
-    --property print.key=true \
-    --topic db2server.DB2INST1.CUSTOMERS
-
-# Modify records in the database via DB2 client
-docker-compose -f docker-compose-db2.yaml exec db2server bash -c 'su - db2inst1'
-db2 connect to TESTDB
-db2 "INSERT INTO DB2INST1.CUSTOMERS(first_name, last_name, email) VALUES ('John', 'Doe', 'john.doe@example.com');"
-# Shut down the cluster
-docker-compose -f docker-compose-db2.yaml down
-```
-
-## Using externalized secrets
-
-Kafka Connect allows [externalization](https://cwiki.apache.org/confluence/display/KAFKA/KIP-297%3A+Externalizing+Secrets+for+Connect+Configurations) of secrets into a separate configuration repository.
-The configuration is done at both worker and connector level.
-
-```shell
-# Start the topology as defined in https://debezium.io/docs/tutorial/
-export DEBEZIUM_VERSION=1.1
-docker-compose -f docker-compose-mysql-ext-secrets.yml up
-
-# Start MySQL connector
-curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-ext-secrets.json
-
-# Check plugin configuration to see that secrets are not visible
-curl -s http://localhost:8083/connectors/inventory-connector/config | jq .
-
-# Shut down the cluster
-docker-compose -f docker-compose-mysql-ext-secrets.yml down
-```
-
-## Debugging
-
-Should you need to establish a remote debugging session into a deployed connector, add the following to the `environment` section of the `connect` in the Compose file service:
-
-    - KAFKA_DEBUG=true
-    - DEBUG_SUSPEND_FLAG=n
-    - JAVA_DEBUG_PORT=*:5005
-
-Also expose the debugging port 5005 under `ports`:
-
-    - 5005:5005
-
-You can then establish a remote debugging session from your IDE on localhost:5005.
-
-
 # Microservice-CDC-Mysql
 
-## Start tutorial demo
+- [Microservice-CDC-Mysql Tutorial using Debezium Source and Confluent Sink Connector](#microservice-cdc-mysql)
+  * [Start tutorial](#start-tutorial-demo)
+    + [List - Register Connectors](#list-connectors)
+      - [Source Connector](#register-source-connector)
+      - [Sink Connector](#register-sink-connector)
+    + [Verify CDC Replication to destination database](#using-mysql-and-apicurio-registry)
+      - [Connect to mysql source](#connect-to-mysql-source)
+      - [Verify records in source](#verify-records-in-source)
+      - [Connect to mysql destination](#connect-to-mysql-destination)
+      - [Verify records in destination](#verify-records-in-destination)
+      - [Insert records in source](#insert-records-in-source)
+      - [Verify whether changes recorded in destination](#verify-records-in-destination)
+  * [End tutorial](#end-the-demo)
+  * [References](#references)
+
+### Start tutorial demo
 `docker-compose -f docker-compose-mysql.yaml up -d`
 
-## Check connector plugins list
+### Check connector plugins list
 localhost:8083/connector-plugins
 
-## To list available connectors
+### List connectors
 localhost:8083/connectors/
 
-## Configure source connector: 
+### Register source connector
 `curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql.json`
 
-## Configure sink connector:
+### Consume messages from a Debezium topic
+`docker-compose -f docker-compose-mysql.yaml exec kafka /kafka/bin/kafka-console-consumer.sh \
+    --bootstrap-server kafka:9092 \
+    --from-beginning \
+    --property print.key=true \
+    --topic dbserver1.inventory.customers`
+
+### Register sink connector
 `curl -i -X POST -H "Accept:application/json" -H  "Content-Type:application/json" http://localhost:8083/connectors/ -d @register-mysql-sink.json`
 
-## To check status of a connector: replace name of the connector in "jdbc-sink-connector"
+Register multiple sink connector for different tables, if primary key or the configuration differs
+
+### To check status of a connector: replace name of the connector in "jdbc-sink-connector"
 http://localhost:8083/connectors/jdbc-sink-connector/status
 
-## To delete a connector: replace name of the connector in "jdbc-sink-connector"
+### To delete a connector: replace name of the connector in "jdbc-sink-connector"
 `curl -X DELETE localhost:8083/connectors/jdbc-sink-connector`
 
-## Connect to Mysql source:
+### To restart a connector
+`curl -X POST localhost:8083/connectors/jdbc-sink-connector/restart`
+
+### Connect to Mysql source:
 `docker-compose -f docker-compose-mysql.yaml exec mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
 
-## Update records in source
+### Connect to Mysql Destination:
+`docker-compose -f docker-compose-mysql.yaml exec mysqldestination bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
+
+### Verify records in source
+`select * from customers;`
+
+### Update records in source
 `update customers set first_name='dip';`
 
-## Insert records in source
+### Insert records in source
 `insert into customers(id,first_name,last_name,email) values(1005,'1','1','1');`
 
-## Delete a record in source
+### Verify records in destination
+`select * from kafka_customers;`
+
+### Delete a record in source
 `delete from customers where id=1005;` 
 
-## Add column in source : Column will only be added if any new insert sql statement is found with the new column
+### Add column in source : Column will only be added if any new insert sql statement is found with the new column
 `ALTER TABLE customers
   ADD phone varchar(40)  NULL
     AFTER email;`
     
-## Rename column name in source : Column will only be added if any new insert sql statement is found with the new column,but old data in not available in new column. So only rename columns if data are not added in old field
+### Rename column name in source : Column will only be added if any new insert sql statement is found with the new column,but old data in not available in new column. So only rename columns if data are not added in old field
 `ALTER TABLE customers
   CHANGE COLUMN phone mobile
     varchar(20) NULL;`
     
-## Remove a column in source : Column is not removed : Remove is not yet supported
+### Remove a column in source : Column is not removed : Remove is not yet supported
 `ALTER TABLE customers
   DROP COLUMN mobile;`    
   
-## Unique index/Auto increment column is not added in destination, but due to it no adverse effect is found yet
+### Index/Unique index/Auto increment column/Foreign Keys is not added in destination, but due to it no adverse effect is found yet
 
-## Connect to Mysql Destination:
-`docker-compose -f docker-compose-mysql.yaml exec mysqldestination bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD inventory'`
-
-## Check whether log bin is enabled in mysql
+### Check whether log bin is enabled in mysql
 `SHOW VARIABLES LIKE 'log_bin';`
 
-## Get mysql Server id
+### Add multiple comma seperated tables name that needs to be replicated should be placed in topics key of sink connector configuration 
+"topics": "customers,addresses,products"
+
+### Add prefix to the destination tables
+
+Eg: For customers table, kafka_customers will be created in the destination.
+
+"table.name.format":"kafka_${topic}",
+
+### Add multiple parallel workers for the tasks
+The maximum number of tasks that should be created for this connector. The connector may create fewer tasks if it cannot achieve this level of parallelism.
+Eg:
+"tasks.max" : 3
+
+### Optional : Get mysql Server id to be placed in : database.server.id
 `SELECT @@server_id`
 
-## End the demo
+Refer [debezium config](https://debezium.io/documentation/reference/1.1/connectors/mysql.html#mysql-property-database-server-id:~:text=A%20numeric%20ID%20of%20this%20database,we%20recommend%20setting%20an%20explicit%20value.) for more
+
+### End the demo
 `docker-compose -f docker-compose-mysql.yaml down`
 
-## References
+### References
 Thanks to the below contributors
 
 1. [Microservices:](https://microservices.io/patterns/data/database-per-service.html) - Database per service architecture
@@ -447,4 +118,5 @@ Thanks to the below contributors
 3. Inspired by [Eventuate Tram](https://eventuate.io/abouteventuatetram.html)
 4. [Confluent JDBC Sink Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
 5. [Debezium Mysql Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/sink-connector/sink_config_options.html#sink-config-options)
-6. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.
+6. Manage [Confluent Kafka connector](https://docs.confluent.io/3.2.0/connect/managing.html)
+7. Inplace of Debezium, [Confluent JDBC Source Connector configuration](https://docs.confluent.io/current/connect/kafka-connect-jdbc/source-connector/source_config_options.html#jdbc-source-configs) can also be used.

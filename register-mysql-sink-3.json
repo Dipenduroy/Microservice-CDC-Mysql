@@ -1,5 +1,5 @@
 {
-  "name": "jdbc-sink-connector",
+  "name": "jdbc-sink-connector-3",
   "config": {
     "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
     "connection.url": "jdbc:mysql://mysqldestination:3306/inventory?user=mysqluser&password=mysqlpw&useUnicode=true&characterEncoding=UTF-8&verifyServerCertificate=false&useSSL=false&requireSSL=false&autoReconnect=true&failOverReadOnly=false&maxReconnects=10",
@@ -9,10 +9,10 @@
     "pk.mode":"record_key",
     "auto.create": "true",
     "auto.evolve":"true",
-    "tasks.max": "3",  
-    "topics": "customers,addresses,products",
+    "tasks.max": "1",  
+    "topics": "orders",
     "table.name.format":"kafka_${topic}",
-    "pk.fields": "id",
+    "pk.fields": "order_number",
     "insert.mode": "upsert",
     "transforms": "unwrap",
     "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
