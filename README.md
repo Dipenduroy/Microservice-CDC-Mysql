@@ -5,7 +5,7 @@
     + [List - Register Connectors](#list-connectors)
       - [Source Connector](#register-source-connector)
       - [Sink Connector](#register-sink-connector)
-    + [Verify CDC Replication to destination database](#using-mysql-and-apicurio-registry)
+    + Verify CDC Replication to destination database
       - [Connect to mysql source](#connect-to-mysql-source)
       - [Verify records in source](#verify-records-in-source)
       - [Connect to mysql destination](#connect-to-mysql-destination)
